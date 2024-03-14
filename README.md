@@ -1,7 +1,6 @@
 # PLATO: Predictive Learning Algorithm for Trading Optimization (FORKED FROM MambaStock)
 
-TODO:
-Mamba (Structured state space sequence models with selection mechanism and scan module, S6) has achieved remarkable success in sequence modeling tasks. This paper proposes a Mamba-based model to predict the stock price. (FORKED FROM MambaStock)
+Modeling for fun!
 
 ## Requirements
 
