@@ -35,7 +35,7 @@ if is_notebook():
         hidden = 16
         layer = 2
         n_test = 300
-        ts_code = '601988'
+        ts_code = '601288'
     args = Args()
 else:
     parser = argparse.ArgumentParser()
@@ -46,7 +46,7 @@ else:
     parser.add_argument('--wd', type=float, default=1e-5, help='Weight decay (L2 loss on parameters).')
     parser.add_argument('--hidden', type=int, default=16, help='Dimension of representations')
     parser.add_argument('--layer', type=int, default=2, help='Num of layers')
-    parser.add_argument('--n-test', type=int, default=300, help='Size of test set')
+    parser.add_argument('--n-test', type=int, default=3500, help='Size of test set')
     parser.add_argument('--ts-code', type=str, default='601988', help='Stock code')
     args = parser.parse_args()
 
