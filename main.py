@@ -1,3 +1,4 @@
+#%%
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -8,26 +9,48 @@ import torch.nn.functional as F
 from mamba import Mamba, MambaConfig
 import argparse
 
-parser = argparse.ArgumentParser()
-parser.add_argument('--use-cuda', default=False,
-                    help='CUDA training.')
-parser.add_argument('--seed', type=int, default=1, help='Random seed.')
-parser.add_argument('--epochs', type=int, default=100,
-                    help='Number of epochs to train.')
-parser.add_argument('--lr', type=float, default=0.01,
-                    help='Learning rate.')
-parser.add_argument('--wd', type=float, default=1e-5,
-                    help='Weight decay (L2 loss on parameters).')
-parser.add_argument('--hidden', type=int, default=16,
-                    help='Dimension of representations')
-parser.add_argument('--layer', type=int, default=2,
-                    help='Num of layers')
-parser.add_argument('--n-test', type=int, default=300,
-                    help='Size of test set')
-parser.add_argument('--ts-code', type=str, default='601988',
-                    help='Stock code')                    
+#%% FUNCTION DEFINITIONS
 
-args = parser.parse_args()
+# Function to detect if running in a Jupyter notebook
+def is_notebook():
+    try:
+        shell = get_ipython().__class__.__name__
+        if shell == 'ZMQInteractiveShell':
+            return True   # Jupyter notebook or qtconsole
+        elif shell == 'TerminalInteractiveShell':
+            return False  # Terminal running IPython
+        else:
+            return False  # Other type (?)
+    except NameError:
+        return False      # Probably standard Python interpreter
+
+# Use default values if in a Jupyter notebook
+if is_notebook():
+    class Args:
+        use_cuda = True
+        seed = 1
+        epochs = 100
+        lr = 0.01
+        wd = 1e-5
+        hidden = 16
+        layer = 2
+        n_test = 300
+        ts_code = '601988'
+    args = Args()
+else:
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--use-cuda', default=False, help='CUDA training.')
+    parser.add_argument('--seed', type=int, default=1, help='Random seed.')
+    parser.add_argument('--epochs', type=int, default=100, help='Number of epochs to train.')
+    parser.add_argument('--lr', type=float, default=0.01, help='Learning rate.')
+    parser.add_argument('--wd', type=float, default=1e-5, help='Weight decay (L2 loss on parameters).')
+    parser.add_argument('--hidden', type=int, default=16, help='Dimension of representations')
+    parser.add_argument('--layer', type=int, default=2, help='Num of layers')
+    parser.add_argument('--n-test', type=int, default=300, help='Size of test set')
+    parser.add_argument('--ts-code', type=str, default='601988', help='Stock code')
+    args = parser.parse_args()
+
+# Now args can be used as before in your script
 args.cuda = args.use_cuda and torch.cuda.is_available()
 
 def evaluation_metric(y_test,y_hat):
@@ -95,6 +118,7 @@ def PredictWithData(trainX, trainy, testX):
     yhat = mat.detach().numpy().flatten()
     return yhat
 
+#%% RUN MAIN
 data = pd.read_csv(args.ts_code+'.SH.csv')
 data['trade_date'] = pd.to_datetime(data['trade_date'], format='%Y%m%d')
 close = data.pop('close').values
