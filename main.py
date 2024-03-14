@@ -50,9 +50,10 @@ else:
     parser.add_argument('--ts-code', type=str, default='601988', help='Stock code')
     args = parser.parse_args()
 
-# Now args can be used as before in your script
+# Set args
 args.cuda = args.use_cuda and torch.cuda.is_available()
 
+# Evaluation metric
 def evaluation_metric(y_test,y_hat):
     MSE = mean_squared_error(y_test, y_hat)
     RMSE = MSE**0.5
@@ -60,12 +61,14 @@ def evaluation_metric(y_test,y_hat):
     R2 = r2_score(y_test,y_hat)
     print('%.4f %.4f %.4f %.4f' % (MSE,RMSE,MAE,R2))
 
+# Seed?? dunno
 def set_seed(seed,cuda):
     np.random.seed(seed)
     torch.manual_seed(seed)
     if cuda:
         torch.cuda.manual_seed(seed)
 
+# Also dunno lol :(
 def dateinf(series, n_test):
     lt = len(series)
     print('Training start',series[0])
@@ -75,6 +78,7 @@ def dateinf(series, n_test):
 
 set_seed(args.seed,args.cuda)
 
+# Net class
 class Net(nn.Module):
     def __init__(self,in_dim,out_dim):
         super().__init__()
@@ -84,7 +88,7 @@ class Net(nn.Module):
             Mamba(self.config),
             nn.Linear(args.hidden,out_dim),
             nn.Tanh()
-        )
+        ) #default mamba with tanh activation function?
     
     def forward(self,x):
         x = self.mamba(x)
@@ -92,11 +96,11 @@ class Net(nn.Module):
 
 def PredictWithData(trainX, trainy, testX):
     clf = Net(len(trainX[0]),1)
-    opt = torch.optim.Adam(clf.parameters(),lr=args.lr,weight_decay=args.wd)
+    opt = torch.optim.Adam(clf.parameters(),lr=args.lr,weight_decay=args.wd) #Adam optimizer
     xt = torch.from_numpy(trainX).float().unsqueeze(0)
     xv = torch.from_numpy(testX).float().unsqueeze(0)
     yt = torch.from_numpy(trainy).float()
-    if args.cuda:
+    if args.cuda: #use if cuda is available
         clf = clf.cuda()
         xt = xt.cuda()
         xv = xv.cuda()
@@ -123,15 +127,16 @@ data = pd.read_csv(args.ts_code+'.SH.csv')
 data['trade_date'] = pd.to_datetime(data['trade_date'], format='%Y%m%d')
 close = data.pop('close').values
 ratechg = data['pct_chg'].apply(lambda x:0.01*x).values
-data.drop(columns=['pre_close','change','pct_chg'],inplace=True)
+data.drop(columns=['pre_close','change','pct_chg'],inplace=True) # what does this line do?
 dat = data.iloc[:,2:].values
 trainX, testX = dat[:-args.n_test, :], dat[-args.n_test:, :]
 trainy = ratechg[:-args.n_test]
-predictions = PredictWithData(trainX, trainy, testX)
+predictions = PredictWithData(trainX, trainy, testX) # actually train model
 time = data['trade_date'][-args.n_test:]
 data1 = close[-args.n_test:]
 finalpredicted_stock_price = []
 pred = close[-args.n_test-1]
+
 for i in range(args.n_test):
     pred = close[-args.n_test-1+i]*(1+predictions[i])
     finalpredicted_stock_price.append(pred)
