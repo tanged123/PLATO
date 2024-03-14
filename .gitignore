@@ -103,6 +103,7 @@ cython_debug/
 data/
 *.db
 *.sqlite
+!src/data*
 
 # Log files
 *.log
