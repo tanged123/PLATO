@@ -4,7 +4,7 @@ from sklearn.preprocessing import StandardScaler
 
 def clean_data(data):
     """
-    Remove rows with any missing values from the DataFrame.
+    Cleans data from the DataFrame.
 
     Parameters:
     - data (pandas.DataFrame): The input DataFrame containing stock data.
@@ -13,8 +13,12 @@ def clean_data(data):
     - pandas.DataFrame: A DataFrame with rows containing NaN values removed.
     """
 
-    # TODO, figure out what else needs to be cleaned up
-    cleaned_data = data.dropna()
+    # TODO, figure out what else needs to be cleaned up\
+    # Removes missing rows
+    cleaned_data = data.dropna() 
+    # Remove duplicates, keeping the first occurrence
+    cleaned_data = cleaned_data.drop_duplicates(subset='date', keep='first')
+
     return cleaned_data
 
 def add_moving_average(data, window_size=5):
@@ -73,23 +77,49 @@ def normalize_features(data):
     data[features] = scaler.fit_transform(data[features])
     return data
 
-def prepare_data(data):
+def pad_missing_values(data,ma_window_size):
     """
-    Prepare the stock data for machine learning models. This includes cleaning the data, adding moving average and RSI features, normalizing the features, and finally splitting the data into training and testing sets.
+    Meant to pad out the beginning and end of MA5 and RSI values
 
     Parameters:
     - data (pandas.DataFrame): The input DataFrame containing stock data.
 
     Returns:
-    - tuple: A tuple containing two DataFrames, one for training and another for testing.
+    - pandas.DataFrame: The DataFrame with MA5 and RSI padded
     """
+    data[f'MA_{ma_window_size}'] = data[f'MA_{ma_window_size}'].fillna(method='ffill').fillna(method='bfill')
+    data['RSI'] = data['RSI'].fillna(method='ffill').fillna(method='bfill')
+    return data
 
+def prepare_data(data, test_size=0.2, ma_window_size=5, rsi_window_size=14):
+    """
+    Prepares the data for modeling, including sorting by date and performing a train-test split.
+
+    Parameters:
+    - data (pandas.DataFrame): The input DataFrame containing the stock data.
+    - test_size (float): The proportion of the dataset to include in the test split.
+    - random_state (int, optional): Controls the shuffling applied to the data before applying the split.
+
+    Returns:
+    - tuple: A tuple containing the training and testing datasets.
+    """
+    # Run through preprocessing before splitting
     data = clean_data(data)
-    data = add_moving_average(data)
-    data = add_rsi(data)
+    data = add_moving_average(data,ma_window_size)
+    data = add_rsi(data,rsi_window_size)
     data = normalize_features(data)
-    # Splitting data into train, validate, test
-    train, test = train_test_split(data, test_size=0.3, random_state=42)
+    data = pad_missing_values(data,ma_window_size)
+    #data = clean_data(data) # clean data again to remove any nans added by adding features
+    
+    data.sort_values(by='date', inplace=True)  # Sort the DataFrame by 'date', assumes no duplicates
+
+    # After sorting, there's no need to assign to another variable for the length calculation
+    split_idx = int(len(data) * (1 - test_size))  # Use the sorted DataFrame directly
+
+    # Perform the train-test split based on the calculated index
+    train = data.iloc[:split_idx]
+    test = data.iloc[split_idx:]
+
     return train, test
 
 # Example usage

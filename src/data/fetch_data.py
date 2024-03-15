@@ -20,6 +20,7 @@ def fetch_stock_data(ticker_symbol, start_date, end_date):
     ticker = yf.Ticker(ticker_symbol)
     data = ticker.history(start=start_date, end=end_date)
     data.reset_index(inplace=True) # Reset index and get date as just another data field
+    
     # Include the ticker symbol as a column
     data['symbol'] = ticker_symbol.upper()  # Assuming you want the symbol in uppercase
     # Inside your fetch_stock_data function, after resetting the index
@@ -27,6 +28,7 @@ def fetch_stock_data(ticker_symbol, start_date, end_date):
     # Convert column names to lowercase
     data.columns = data.columns.str.lower()
     data['date'] = pd.to_datetime(data['date']).dt.date # Convert datetime value
+    data.sort_values(by='date', inplace=True)  # Use lowercase 'date' to match column names
     return data
 
 if __name__ == "__main__":
