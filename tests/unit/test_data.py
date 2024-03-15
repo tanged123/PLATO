@@ -48,33 +48,34 @@ class TestSaveDataCSV(unittest.TestCase):
         mock_to_csv.assert_called_once_with(filename, index=False)
 
 class TestSaveDataDB(unittest.TestCase):
-    @patch('src.data.save_data.sessionmaker')
+    @patch('pandas.DataFrame.to_sql')
     @patch('src.data.save_data.create_engine')
-    def test_save_data_to_db(self, mock_create_engine, mock_sessionmaker):
-        # Setup mock session
-        mock_session = MagicMock()
-        mock_sessionmaker.return_value = MagicMock(return_value=mock_session)
-        
+    def test_save_data_to_db(self, mock_create_engine, mock_to_sql):
         # Prepare DataFrame with string dates
         data = pd.DataFrame({
-            'Date': ['2020-01-01', '2020-01-02'],
-            'Open': [290, 290],
-            'Close': [300, 305],
-            'Volume': [1000, 1500],
-            'High': [310, 310],
-            'Low': [290, 290]
+            'date': ['2020-01-01', '2020-01-02'],  # Lowercase column names to align with the fetch_data output
+            'open': [290, 290],
+            'close': [300, 305],
+            'volume': [1000, 1500],
+            'high': [310, 310],
+            'low': [290, 290]
         })
         
         # Call the function with mocked objects
         database_url = 'sqlite:///test_stock_data.db'
-        save_data_to_db(data, database_url)
+        table_name = 'stock_data'
+        save_data_to_db(data, database_url, table_name)
         
-        # Check if session methods are called appropriately
-        mock_session.add.assert_called()
-        mock_session.commit.assert_called()
-
-        # Reset mock to clear call history
-        mock_session.reset_mock()
+        # Check if pandas.DataFrame.to_sql was called correctly
+        mock_to_sql.assert_called_once()
+        mock_create_engine.assert_called_once_with(database_url)
+        
+        # Verify to_sql was called with correct parameters
+        call_args, call_kwargs = mock_to_sql.call_args
+        self.assertEqual(call_kwargs['name'], table_name)
+        self.assertEqual(call_kwargs['con'], mock_create_engine.return_value)
+        self.assertEqual(call_kwargs['index'], False)
+        self.assertEqual(call_kwargs['if_exists'], 'append')
 
 class TestProcessData(unittest.TestCase):
 

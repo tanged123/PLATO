@@ -1,6 +1,7 @@
 # src/data/save_data.py
 
 import pandas as pd
+import uuid
 from sqlalchemy import create_engine
 from sqlalchemy.orm import declarative_base
 from sqlalchemy import Column, Integer, String, Float, Date
@@ -20,32 +21,20 @@ class StockData(Base):
 
 def save_data_to_db(data, database_url, table_name='stock_data'):
     """
-    Saves the provided DataFrame to a database table using SQLAlchemy.
+    Saves the provided DataFrame to a database table using pandas' to_sql method,
+    which automatically handles column names and data types.
 
     Parameters:
-    data (pandas.DataFrame): The data to save.
-    database_url (str): The database URL.
-    table_name (str): The table name where data should be saved.
+    - data (pandas.DataFrame): The data to save. Assumes column names are already in lowercase.
+    - database_url (str): The database URL.
+    - table_name (str): The table name where data should be saved.
     """
-    # Convert 'Date' column to datetime objects
-    data['Date'] = pd.to_datetime(data['Date']).dt.date
-
     engine = create_engine(database_url)
-    Base.metadata.create_all(engine)  # Create the table if it doesn't exist
-    Session = sessionmaker(bind=engine)
-    session = Session()
-
-    for _, row in data.iterrows():
-        # Just before saving to DB, ensure the DataFrame has the expected columns
-        expected_columns = ['Date', 'Open', 'High', 'Low', 'Close', 'Volume']
-        if not all(column in data.columns for column in expected_columns):
-            raise ValueError(f"DataFrame is missing one of the expected columns: {expected_columns}")
-
-        stock_entry = StockData(date=row['Date'], open=row['Open'], high=row['High'], low=row['Low'], close=row['Close'], volume=row['Volume'])
-        session.add(stock_entry)
-
-    session.commit()
-    session.close()
+    # Convert UUIDs to strings if not already done
+    if 'id' in data.columns and isinstance(data['id'].iloc[0], uuid.UUID):
+        data['id'] = data['id'].apply(lambda x: str(x))
+    # Use the DataFrame's to_sql method to save data to the database
+    data.to_sql(name=table_name, con=engine, index=False, if_exists='append')
 
 def save_data_to_csv(data, filename):
     """
