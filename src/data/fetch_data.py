@@ -13,7 +13,7 @@ def fetch_stock_data(ticker_symbol, start_date, end_date):
     - ticker_symbol (str): The ticker symbol of the stock (e.g., 'AAPL').
     - start_date (str): The start date for the data fetch (format: 'YYYY-MM-DD').
     - end_date (str): The end date for the data fetch (format: 'YYYY-MM-DD').
-
+    # this model is beyond all reason
     Returns:
     - pandas.DataFrame: DataFrame containing the fetched stock data along with an 'id' and 'symbol' column.
     """
