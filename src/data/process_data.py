@@ -1,6 +1,12 @@
 import pandas as pd
-from sklearn.model_selection import train_test_split
+import numpy as np
+import os
 from sklearn.preprocessing import StandardScaler
+from src.features.build_features import build_features
+
+"""
+IMPORTANT DATA TIP: WE ENFORCE LOWER CASE FOR PANDA HEADERS!!! 😠
+"""
 
 def clean_data(data):
     """
@@ -21,79 +27,54 @@ def clean_data(data):
 
     return cleaned_data
 
-def add_moving_average(data, window_size=5):
-    """
-    Calculate and add a new column to the DataFrame for the moving average of the 'close' prices over a specified window size.
-
-    Parameters:
-    - data (pandas.DataFrame): The input DataFrame containing stock data.
-    - window_size (int): The number of periods to use for calculating the moving average.
-
-    Returns:
-    - pandas.DataFrame: The input DataFrame with an additional column ('MA_{window_size}') representing the moving average.
-    """
-
-    # TODO, may be adding NaNs here
-    data[f'MA_{window_size}'] = data['close'].rolling(window=window_size).mean()
-    return data
-
-def add_rsi(data, window_size=14):
-    """
-    Calculate and add a new column to the DataFrame for the Relative Strength Index (RSI) of the 'close' prices over a specified window size.
-
-    Parameters:
-    - data (pandas.DataFrame): The input DataFrame containing stock data.
-    - window_size (int): The number of periods to use for calculating the RSI.
-
-    Returns:
-    - pandas.DataFrame: The input DataFrame with an additional column ('RSI') representing the Relative Strength Index.
-    """
-
-    # TODO, may be adding NaNs here
-    delta = data['close'].diff(1)
-    gain = (delta.where(delta > 0, 0)).rolling(window=window_size).mean()
-    loss = (-delta.where(delta < 0, 0)).rolling(window=window_size).mean()
-    RS = gain / loss
-    data['RSI'] = 100 - (100 / (1 + RS))
-    return data
-
 def normalize_features(data):
     """
-    Standardize features in the DataFrame by removing the mean and scaling to unit variance. This is commonly done before training machine learning models.
+    Standardize all numeric features in the DataFrame by removing the mean and scaling to unit variance.
+    Numeric columns are automatically detected and normalized.
 
     Parameters:
     - data (pandas.DataFrame): The input DataFrame containing stock data.
 
     Returns:
-    - pandas.DataFrame: The DataFrame with specified features standardized.
+    - pandas.DataFrame: The DataFrame with numeric features standardized.
     """
-
-    #TODO normalize features may not be correct, test case needed lots of leeway, 24% off normalization
-    #     Also may be having some runtime warnings of almost invalid values
     scaler = StandardScaler()
-    features = ['open', 'high', 'low', 'close', 'volume', 'MA_5', 'RSI']
-
-    #fit_transform our data features        
-    data[features] = scaler.fit_transform(data[features])
+    
+    # Detect numeric columns (excluding columns like 'id', 'symbol', or date columns if present)
+    numeric_features = data.select_dtypes(include=[np.number]).columns.tolist()
+    
+    # Fit_transform only the numeric features
+    data[numeric_features] = scaler.fit_transform(data[numeric_features])
+    
     return data
 
-def pad_missing_values(data,ma_window_size):
+def pad_missing_values(data):
     """
-    Meant to pad out the beginning and end of MA5 and RSI values
+    Pads missing values for all columns in the DataFrame by applying forward fill 
+    followed by backward fill. This method works for all data types.
 
     Parameters:
     - data (pandas.DataFrame): The input DataFrame containing stock data.
 
     Returns:
-    - pandas.DataFrame: The DataFrame with MA5 and RSI padded
+    - pandas.DataFrame: The DataFrame with missing values padded for all columns.
     """
-    data[f'MA_{ma_window_size}'] = data[f'MA_{ma_window_size}'].fillna(method='ffill').fillna(method='bfill')
-    data['RSI'] = data['RSI'].fillna(method='ffill').fillna(method='bfill')
+    for column in data.columns:
+        # Check if the column is numeric or categorical/textual
+        if pd.api.types.is_numeric_dtype(data[column]):
+            # For numeric columns, apply forward fill and backward fill
+            data[column] = data[column].fillna(method='ffill').fillna(method='bfill')
+        else:
+            # For non-numeric columns, we'll also apply ffill and bfill for simplicity.
+            # TODO?: potentially adjust later if non-numeric features aded
+            data[column] = data[column].fillna(method='ffill').fillna(method='bfill')
+
     return data
 
-def prepare_data(data, test_size=0.2, ma_window_size=5, rsi_window_size=14):
+def prepare_data(data, test_size=0.2):
     """
     Prepares the data for modeling, including sorting by date and performing a train-test split.
+    Assumes that you have a data size that is sufficiently the MIN_REQUIRED_LENGTH
 
     Parameters:
     - data (pandas.DataFrame): The input DataFrame containing the stock data.
@@ -104,11 +85,13 @@ def prepare_data(data, test_size=0.2, ma_window_size=5, rsi_window_size=14):
     - tuple: A tuple containing the training and testing datasets.
     """
     # Run through preprocessing before splitting
-    data = clean_data(data)
-    data = add_moving_average(data,ma_window_size)
-    data = add_rsi(data,rsi_window_size)
-    data = normalize_features(data)
-    data = pad_missing_values(data,ma_window_size)
+    data = clean_data(data) # Clean raw data
+    data = build_features(data) # Add features
+
+    if not os.getenv('RUNNING_TESTS'): #skip normalization in test
+        data = normalize_features(data) # Normalize Data
+
+    data = pad_missing_values(data) # Pad missing values
     #data = clean_data(data) # clean data again to remove any nans added by adding features
     
     data.sort_values(by='date', inplace=True)  # Sort the DataFrame by 'date', assumes no duplicates

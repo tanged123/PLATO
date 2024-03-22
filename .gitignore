@@ -123,5 +123,5 @@ Thumbs.db
 *.swp
 *~
 
-# Stock files
-stock*
+# Keep all Stock files
+!**/*stock*

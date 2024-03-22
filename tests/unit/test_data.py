@@ -1,13 +1,13 @@
-# tests/test_data.py
+# tests/unit/test_data.py
 
 import unittest
 import pandas as pd
 import warnings
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 from src.data.fetch_data import fetch_stock_data
 from src.data.save_data import save_data_to_csv, save_data_to_db
-from src.data.process_data import clean_data, add_moving_average, add_rsi, normalize_features, prepare_data
-from sklearn.preprocessing import StandardScaler
+from src.data.process_data import clean_data, normalize_features, prepare_data, pad_missing_values
+
 
 
 class TestDataFetch(unittest.TestCase):
@@ -107,22 +107,6 @@ class TestProcessData(unittest.TestCase):
         # Additionally, verify that the correct row is kept (the first occurrence)
         self.assertEqual(cleaned.iloc[0]['open'], 100, "The first occurrence of the duplicate date should be kept")
 
-    def test_add_moving_average(self):
-        data = pd.DataFrame({
-            'close': [1, 2, 3, 4, 5]
-        })
-        result = add_moving_average(data, window_size=3)
-        expected_ma = [None, None, 2, 3, 4]  # The first two are NaN because the window is 3
-        pd.testing.assert_series_equal(result['MA_3'], pd.Series(expected_ma, name='MA_3'), check_names=False)
-
-    def test_add_rsi(self):
-        data = pd.DataFrame({
-            'close': [110, 120, 130, 120, 110]
-        })
-        result = add_rsi(data)
-        self.assertIn('RSI', result.columns)  # Check if RSI column is added
-
-
     def test_normalize_features(self):
         data = pd.DataFrame({
             'open': [1, 2, 3],
@@ -130,12 +114,12 @@ class TestProcessData(unittest.TestCase):
             'low': [1, 2, 3],
             'close': [1, 2, 3],
             'volume': [1, 2, 3],
-            'MA_5': [1, 2, 3],
-            'RSI': [1, 2, 3]
+            'ma_5': [1, 2, 3],
+            'rsi': [1, 2, 3]
         })
         normalized_data = normalize_features(data)
 
-        for col in ['open', 'high', 'low', 'close', 'volume', 'MA_5', 'RSI']:
+        for col in ['open', 'high', 'low', 'close', 'volume', 'ma_5', 'rsi']:
             # Check if the mean is close to 0
             self.assertAlmostEqual(normalized_data[col].mean(), 0, places=1,
                                 msg=f"Mean of {col} after normalization is not close to 0")
@@ -143,8 +127,30 @@ class TestProcessData(unittest.TestCase):
             # Check if the std deviation is close to 1
             self.assertAlmostEqual(normalized_data[col].std(ddof=0), 1, places=1,
                                 msg=f"Std of {col} after normalization is not close to 1")
+            
+
+    def test_pad_missing_values(self):
+        # Creating a test DataFrame with missing values
+        data = pd.DataFrame({
+            'date': pd.date_range(start="2020-01-01", periods=5, freq='D'),
+            'open': [100, None, 102, 103, None],  # Intentional missing values
+            'close': [None, 106, None, 108, 109],  # Intentional missing values
+            'volume': [1000, None, 1200, None, 1400]  # Intentional missing values
+        })
+
+        # Pad missing values!
+        padded_data = pad_missing_values(data)
+
+        # Verify that there are no missing values after padding
+        for col in ['open', 'close', 'volume']:
+            self.assertFalse(padded_data[col].isnull().any(), f"{col} column should have no missing values after padding")
+
+        # Verify that the non-numeric 'date' column is unchanged or correctly handled
+        self.assertEqual(len(padded_data['date'].dropna()), len(data), "Date column should remain unchanged")
+
 
     def test_prepare_data(self):
+        # Create sample DataFrame
         data = pd.DataFrame({
             'date': pd.date_range(start="2020-01-01", periods=5, freq='D'),
             'open': [100, 101, 102, 103, 104],
@@ -160,12 +166,25 @@ class TestProcessData(unittest.TestCase):
         # Check that the train and test data are not empty
         self.assertNotEqual(len(train_data), 0, "Train data should not be empty")
         self.assertNotEqual(len(test_data), 0, "Test data should not be empty")
+
+        # Assert correct columns are present
+        moving_average_windows = [5, 20, 50]  # Default arguments in buildFeatures
+
+        for window in moving_average_windows:
+            self.assertIn(f'ma_{window}', train_data.columns, f"'ma_{window}' not found in train data columns")
+            self.assertIn(f'ma_{window}', test_data.columns, f"'ma_{window}' not found in test data columns")
         
-        # Ensure the expected features 'MA_5' and 'RSI' are added to both train and test datasets
-        self.assertIn('MA_5', train_data.columns, "'MA_5' not found in train data columns")
-        self.assertIn('RSI', train_data.columns, "'RSI' not found in train data columns")
-        self.assertIn('MA_5', test_data.columns, "'MA_5' not found in test data columns")
-        self.assertIn('RSI', test_data.columns, "'RSI' not found in test data columns")
+        self.assertIn('rsi', train_data.columns, "'rsi' not found in train data columns")
+        self.assertIn('rsi', test_data.columns, "'rsi' not found in test data columns")
+        
+        self.assertIn('bb_high', train_data.columns, "'bb_high' not found in train data columns")
+        self.assertIn('bb_low', train_data.columns, "'bb_low' not found in train data columns")
+
+        self.assertIn('bb_high', test_data.columns, "'bb_high' not found in test data columns")
+        self.assertIn('bb_low', test_data.columns, "'bb_low' not found in test data columns")
+
+        # TODO: add the necessary assertIn checks for those feature column names as well.
+        
 
 
 if __name__ == '__main__':

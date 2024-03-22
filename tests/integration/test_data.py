@@ -31,8 +31,9 @@ class TestDataIntegration(unittest.TestCase):
         # Process data
         train_data, _ = prepare_data(data)
         self.assertFalse(train_data.empty)
-        self.assertIn('MA_5', train_data.columns)
-        self.assertIn('RSI', train_data.columns)
+        # Do a quick check for rsi and ma_5 columns
+        self.assertIn('ma_5', train_data.columns)
+        self.assertIn('rsi', train_data.columns)
 
         # Save data to CSV
         save_data_to_csv(train_data, self.csv_filename)
